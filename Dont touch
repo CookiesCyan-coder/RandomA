@@ -1,0 +1,203 @@
+--[[
+Made by: the_destroyer on discord
+Discord: https://discord.gg/FExqtecQEe
+]]
+
+-- Load UI Library
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = Library.CreateLib("Speed, Jump, Fly, Tools | by the_destroyer", "DarkTheme")
+
+-- Player reference
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local camera = workspace.CurrentCamera
+
+-- MAIN TAB
+local mainTab = Window:NewTab("Main")
+local mainSection = mainTab:NewSection("Main Controls")
+
+-- == Sprint ==
+local sprintEnabled = false
+local speedValue = 50
+mainSection:NewButton("Toggle Sprint", "Speed Boost Toggle", function()
+    sprintEnabled = not sprintEnabled
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = sprintEnabled and speedValue or 16
+    end
+end)
+
+-- == Infinite Jump ==
+local infJumpEnabled = false
+mainSection:NewButton("Toggle Infinite Jump", "Enables/Disables Infinite Jump", function()
+    infJumpEnabled = not infJumpEnabled
+    if infJumpEnabled then
+        loadstring(game:HttpGet("https://cdn.wearedevs.net/scripts/Infinite%20Jump.txt"))()
+        print("Infinite Jump Enabled")
+    else
+        print("Disable Infinite Jump: Rejoin required to fully remove effect")
+    end
+end)
+
+-- == Fly ==
+local flying = false
+local flySpeed = 50
+local moveVec = Vector3.zero
+local direction = {
+    w = false, a = false, s = false, d = false,
+    space = false, ctrl = false
+}
+
+local function updateMoveVec()
+    local camCF = camera.CFrame
+    moveVec = Vector3.zero
+    if direction.w then moveVec += camCF.LookVector end
+    if direction.s then moveVec -= camCF.LookVector end
+    if direction.a then moveVec -= camCF.RightVector end
+    if direction.d then moveVec += camCF.RightVector end
+    if direction.space then moveVec += camCF.UpVector end
+    if direction.ctrl then moveVec -= camCF.UpVector end
+    moveVec = moveVec.Unit * flySpeed
+end
+
+UIS.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    local key = input.KeyCode
+    if key == Enum.KeyCode.W then direction.w = true
+    elseif key == Enum.KeyCode.A then direction.a = true
+    elseif key == Enum.KeyCode.S then direction.s = true
+    elseif key == Enum.KeyCode.D then direction.d = true
+    elseif key == Enum.KeyCode.Space then direction.space = true
+    elseif key == Enum.KeyCode.LeftControl then direction.ctrl = true end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    local key = input.KeyCode
+    if key == Enum.KeyCode.W then direction.w = false
+    elseif key == Enum.KeyCode.A then direction.a = false
+    elseif key == Enum.KeyCode.S then direction.s = false
+    elseif key == Enum.KeyCode.D then direction.d = false
+    elseif key == Enum.KeyCode.Space then direction.space = false
+    elseif key == Enum.KeyCode.LeftControl then direction.ctrl = false end
+end)
+
+mainSection:NewButton("Toggle Fly", "Enable/Disable Fly like HD Admin", function()
+    flying = not flying
+    local char = LocalPlayer.Character
+    local root = char:WaitForChild("HumanoidRootPart")
+
+    local bv = root:FindFirstChild("FlyVelocity") or Instance.new("BodyVelocity")
+    bv.Name = "FlyVelocity"
+    bv.MaxForce = Vector3.new(1, 1, 1) * 1e6
+    bv.Velocity = Vector3.zero
+    bv.Parent = root
+
+    if flying then
+        RunService:BindToRenderStep("FlyControl", Enum.RenderPriority.Character.Value, function()
+            updateMoveVec()
+            bv.Velocity = moveVec
+        end)
+        print("Fly Enabled")
+    else
+        RunService:UnbindFromRenderStep("FlyControl")
+        bv:Destroy()
+        print("Fly Disabled")
+    end
+end)
+
+-- == Give All Tools ==
+mainSection:NewButton("Give All Tools", "Gives every tool from game", function()
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    local sources = {
+        workspace, game.ReplicatedStorage, game.StarterPack,
+        LocalPlayer:FindFirstChild("Backpack"), LocalPlayer.Character
+    }
+
+    for _, location in pairs(sources) do
+        for _, item in pairs(location:GetChildren()) do
+            if item:IsA("Tool") then
+                local clone = item:Clone()
+                clone.Parent = backpack
+            end
+        end
+    end
+    print("Tools added")
+end)
+
+-- PLAYER TAB
+local playerTab = Window:NewTab("Player")
+local playerSection = playerTab:NewSection("Movement Settings")
+
+-- WalkSpeed Slider
+playerSection:NewSlider("WalkSpeed", "Change your walk speed", 200, 16, function(val)
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if hum then hum.WalkSpeed = val end
+end)
+
+-- Jump Height Slider (Modern Roblox default)
+playerSection:NewSlider("Jump Height", "Adjust how high you jump (modern)", 200, 50, function(val)
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.UseJumpPower = false
+        hum.JumpHeight = val
+    end
+end)
+
+-- Jump Power Slider (Legacy fallback)
+playerSection:NewSlider("Jump Power", "Fallback for older games", 300, 50, function(val)
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.UseJumpPower = true
+        hum.JumpPower = val
+    end
+end)
+
+-- Gravity Slider
+playerSection:NewSlider("Gravity", "Change game gravity", 500, 0, function(val)
+    workspace.Gravity = val
+end)
+
+-- Reset Button
+playerSection:NewButton("Reset to Default", "Resets speed, jump, gravity", function()
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.WalkSpeed = 16
+        hum.JumpHeight = 7.2
+        hum.UseJumpPower = false
+    end
+    workspace.Gravity = 196.2
+end)
+
+-- CREDITS TAB
+local creditsTab = Window:NewTab("Credits")
+local creditsSection = creditsTab:NewSection("Script by")
+
+creditsSection:NewLabel("Made by: the_destroyer on discord")
+creditsSection:NewLabel("UI Library: Kavo UI")
+
+creditsSection:NewButton("Join Discord", "Join our server", function()
+    if syn and syn.request then
+        syn.request({
+            Url = "http://localhost:6463/rpc?v=1",
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = game:GetService("HttpService"):JSONEncode({
+                cmd = "INVITE_BROWSER",
+                args = {code = "FExqtecQEe"},
+                nonce = game:GetService("HttpService"):GenerateGUID(false)
+            })
+        })
+    else
+        setclipboard("https://discord.gg/FExqtecQEe")
+        print("Copied Discord invite to clipboard!")
+    end
+end)
+
+-- HOTKEY TAB
+local hotkeyTab = Window:NewTab("HotKey")
+local hotkeySection = hotkeyTab:NewSection("Keybinds")
+hotkeySection:NewKeybind("Toggle UI", "Toggle the UI on/off", Enum.KeyCode.RightControl, function()
+    Library:ToggleUI()
+end)
